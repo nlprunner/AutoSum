@@ -1,5 +1,15 @@
 #! /usr/bin/python
 # -*- coding: utf8 -*-
+BOOK_ID = 0
+CHAPTER_ID = 1
+SENTENCE_ID = 2
+TOKEN_ID = 3
+HEAD_ID = 7
+WORD = 8
+NWORD = 10
+ENTITY = 12
+SYNTAX = 13
+CHARACTER_ID = 15
 class Node:
     """node of syntax tree"""
     def __init__(self, nword, nid, ntype, cid):
@@ -18,12 +28,12 @@ class SyntaxTree:
     def creat(self, sentence):
         for token in sentence:
             #print token
-            self.node_map[int(token[2])] = Node(token[7], int(token[2]), token[12], int(token[14]))
+            self.node_map[int(token[TOKEN_ID])] = Node(token[NWORD], int(token[TOKEN_ID]), token[SYNTAX], int(token[CHARACTER_ID]))
         for token in sentence:
-            if int(token[2]) in self.node_map:
-                self.node_map[int(token[2])].father = int(token[6])
-            if int(token[6]) in self.node_map:
-                self.node_map[int(token[6])].children.append(int(token[2]))
+            if int(token[TOKEN_ID]) in self.node_map:
+                self.node_map[int(token[TOKEN_ID])].father = int(token[HEAD_ID])
+            if int(token[HEAD_ID]) in self.node_map:
+                self.node_map[int(token[HEAD_ID])].children.append(int(token[TOKEN_ID]))
     def extract_sentence(self, cid):
         """extract sentence"""
         des = []
