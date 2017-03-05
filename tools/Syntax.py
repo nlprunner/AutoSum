@@ -25,7 +25,14 @@ class SyntaxTree:
         self.root = Node("ROOT", -1, "NONE", -1)
         self.node_map = {}
         self.node_map[-1] = self.root
+        self.storyID = -1
+        self.chapterID = -1
+        self.sentenceID = -1
     def creat(self, sentence):
+        if len(sentence) > 0:
+            self.storyID = int(sentence[0][BOOK_ID])
+            self.chapterID = int(sentence[0][CHAPTER_ID])
+            self.sentenceID = int(sentence[0][SENTENCE_ID])
         for token in sentence:
             #print token
             self.node_map[int(token[TOKEN_ID])] = Node(token[NWORD], int(token[TOKEN_ID]), token[SYNTAX], int(token[CHARACTER_ID]))
@@ -148,7 +155,59 @@ class SyntaxTree:
                         des_str += (item[1]) + " "
                     des.append(des_str.rstrip())
         return des
-
+    def extract_label_with_info(self, cid):
+        """
+        extract descriptive labels, and corresponding information, for example,
+        Cop: Mary is [beautiful].
+        Amod:  [little] Mary
+        """
+        des = []
+        for i in self.node_map.keys():
+            temp = self.node_map[i]
+            if temp.cid == cid and temp.ntype == "nsubj":
+                head = temp.father
+                is_neg = False
+                is_cop = False
+                if not head in self.node_map:
+                    continue
+                outMap = {}
+                """check head"""
+                if self.node_map[head].ntype == "advcl" or self.node_map[head].ntype == "null" or self.node_map[head].ntype == "pcomp" or self.node_map[head].ntype == "xcomp" or self.node_map[head].ntype == "ccomp":
+                    outMap[self.node_map[head].nid] = self.node_map[head].nword
+                else:
+                    continue
+                for child in self.node_map[head].children:
+                    if self.node_map[child].ntype == "cop" and self.node_map[head].cid == -1:
+                        is_cop = True
+                    elif self.node_map[child].ntype == "neg":
+                        is_neg = True
+                    elif self.node_map[child].ntype == "amod":
+                        outMap[self.node_map[child].nid] = self.node_map[child].nword
+                    elif self.node_map[child].ntype == "admod":
+                        outMap[self.node_map[child].nid] = self.node_map[child].nword
+                    elif self.node_map[child].ntype == "advmod":
+                        outMap[self.node_map[child].nid] = self.node_map[child].nword
+                """create des"""
+                if is_cop and len(outMap):
+                    #print outMap
+                    des_str = ""
+                    result = sorted(outMap.items(), lambda x, y: cmp(x[0], y[0]))
+                    # phrase
+                    for item in result:
+                        des_str += (item[1]) + " "
+                    # word before
+                    word_before = "BNONE"
+                    if (result[0][0] - 1) in self.node_map:
+                        word_before = self.node_map[result[0][0] - 1].nword
+                    # word after
+                    word_after = "ANONE"
+                    if (result[len(result) - 1][0] + 1) in self.node_map:
+                        word_after = self.node_map[result[len(result) - 1][0] + 1].nword
+                    if word_after == "of" or word_after == "to" or word_after == "about" or word_after == "with" or word_after == "at" or word_after == "for" or word_after == "from" or word_after == "in" or word_after == "on":
+                        continue
+                    des.append([is_neg, des_str.rstrip(), word_before, word_after])
+        return des
+        
     def extract_des(self, cid):
         """extract descriptive properties"""
         des = []
