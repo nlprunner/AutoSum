@@ -7,13 +7,16 @@ TOKEN_ID = 3
 HEAD_ID = 7
 WORD = 8
 NWORD = 10
+POSTAG = 11
 ENTITY = 12
 SYNTAX = 13
 CHARACTER_ID = 15
+pos_tag_dict = {'``':0, ',':1, ':':2, '.':3, '\'\'':4, '$':5, '#':6, 'CC':7, 'CD':8, 'DT':9, 'EX':10, 'FW':11, 'IN':12, 'JJ':13, 'JJR':14, 'JJS':15, '-LRB-':16, 'LS':17, 'MD':18, 'NN':19, 'NNP':20, 'NNPS':21, 'NNS':22, 'PDT':23, 'POS':24, 'PRP':25, 'PRP$':26, 'RB':27, 'RBR':28, 'RBS':29, 'RP':30, '-RRB-':31, 'SYM':32, 'TO':33, 'UH':34, 'VB':35, 'VBD':36, 'VBG':37, 'VBN':38, 'VBP':39, 'VBZ':40, 'WDT':41, 'WP':42, 'WP$':43, 'WRB':44}
 class Node:
     """node of syntax tree"""
-    def __init__(self, nword, nid, ntype, cid):
+    def __init__(self, nword, postag, nid, ntype, cid):
         self.nword = nword
+        self.postag = postag
         self.nid = nid
         self.ntype = ntype
         self.cid = cid
@@ -22,7 +25,7 @@ class Node:
 class SyntaxTree:
     """syntax tree"""
     def __init__(self):
-        self.root = Node("ROOT", -1, "NONE", -1)
+        self.root = Node("ROOT", "NONE", -1, "NONE", -1)
         self.node_map = {}
         self.node_map[-1] = self.root
         self.storyID = -1
@@ -35,7 +38,7 @@ class SyntaxTree:
             self.sentenceID = int(sentence[0][SENTENCE_ID])
         for token in sentence:
             #print token
-            self.node_map[int(token[TOKEN_ID])] = Node(token[NWORD], int(token[TOKEN_ID]), token[SYNTAX], int(token[CHARACTER_ID]))
+            self.node_map[int(token[TOKEN_ID])] = Node(token[NWORD], token[POSTAG], int(token[TOKEN_ID]), token[SYNTAX], int(token[CHARACTER_ID]))
         for token in sentence:
             if int(token[TOKEN_ID]) in self.node_map:
                 self.node_map[int(token[TOKEN_ID])].father = int(token[HEAD_ID])
@@ -193,21 +196,33 @@ class SyntaxTree:
                     des_str = ""
                     result = sorted(outMap.items(), lambda x, y: cmp(x[0], y[0]))
                     # phrase
+                    check = False #check one,when,where,what,who
                     for item in result:
+                        if item[1] == 'one' or item[1] == 'when' or item[1] == 'where' or item[1] == 'what' or item[1] == 'who':
+                            check = True
+                            break
                         des_str += (item[1]) + " "
+                    if check:
+                        continue
                     # word before
                     word_before = "BNONE"
+                    postag_before = 45
                     if (result[0][0] - 1) in self.node_map:
                         word_before = self.node_map[result[0][0] - 1].nword
+                        if self.node_map[result[0][0] - 1].postag in pos_tag_dict:
+                            postag_before = pos_tag_dict[self.node_map[result[0][0] - 1].postag]
                     # word after
                     word_after = "ANONE"
+                    postag_after = 45
                     if (result[len(result) - 1][0] + 1) in self.node_map:
                         word_after = self.node_map[result[len(result) - 1][0] + 1].nword
+                        if self.node_map[result[len(result) - 1][0] + 1].postag in pos_tag_dict:
+                            postag_after = pos_tag_dict[self.node_map[result[len(result) - 1][0] + 1].postag]
                     if word_after == "of" or word_after == "to" or word_after == "about" or word_after == "with" or word_after == "at" or word_after == "for" or word_after == "from" or word_after == "in" or word_after == "on":
                         continue
-                    des.append([is_neg, des_str.rstrip(), word_before, word_after])
+                    des.append([is_neg, des_str.rstrip(), word_before, word_after, postag_before, postag_after])
         return des
-        
+
     def extract_des(self, cid):
         """extract descriptive properties"""
         des = []
