@@ -12,9 +12,9 @@ $ similarity(phrase_i, phrase_j) = cos(embedding(phrase_i), embedding(phrase_j))
 
 3. Select samples
 
-: Exclude samples in questionnaires
+> Exclude samples in questionnaires
 
-: have high similarity candidates (>=0.8)
+> have high similarity candidates (>=0.8)
 
 4. Feature set
 
