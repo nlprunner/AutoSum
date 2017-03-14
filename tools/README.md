@@ -6,7 +6,7 @@ This script is used to generate LTR data-set.
 
 2. Compute similarities and rank
 
-$ embedding(phrase_i) = \Sigma_{word_k\ in\ phrase_i}(embedding(word_k)) / |phrase_i| $
+$$ embedding(phrase_i) = \Sigma_{word_k\ in\ phrase_i}(embedding(word_k)) / |phrase_i| $$
 
 $ similarity(phrase_i, phrase_j) = cos(embedding(phrase_i), embedding(phrase_j)) $
 
