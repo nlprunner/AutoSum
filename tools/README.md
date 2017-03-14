@@ -4,8 +4,7 @@ This script is used to generate LTR data-set.
 
 1. Read tokens from summaries and stories
 
-2. Compute similarities and rank
-
+2. Compute similarities and rank $ a $
 \begin{equation}
 
 $$ embedding(phrase_i) = \Sigma_{word_k\ in\ phrase_i}(embedding(word_k)) / |phrase_i| $$
