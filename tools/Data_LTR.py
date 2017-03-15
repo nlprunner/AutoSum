@@ -20,6 +20,33 @@ class Phrase:
     def output(self):
         return str(self.weight) + "\t" + str(self.chapter_id) + "\t" + str(self.sentence_id) + "\t" + self.word \
     + "\t" + self.word_before + "\t" + str(self.postag_before) + "\t" + self.word_after + "\t" + str(self.postag_after) + "\t" + str(self.count)
+    def output_feature(self, word2vec):
+        lout = []
+        lout.append(self.weight)
+        lout.append(self.chapter_id)
+        lout.append(self.sentence_id)
+        vec = phrase_embedding(self.word.split(' '), word2vec)
+        if not vec == None:
+            lout.append(vec)
+        else:
+            return None
+        lout.extend(vec)
+        vec = phrase_embedding(self.word_before.split(' '), word2vec)
+        if not vec == None:
+            lout.append(vec)
+        else:
+            return None
+        lout.extend(vec)
+        lout.append(self.postag_before)
+        vec = phrase_embedding(self.word_after.split(' '), word2vec)
+        if not vec == None:
+            lout.append(vec)
+        else:
+            return None
+        lout.extend(vec)
+        lout.append(self.postag_after)
+        lout.append(self.count)
+        return ' '.join([str(x) for x in lout])
 class PhraseSet:
     """Set to manage phrases"""
     def __init__(self, story_id, character_id):
@@ -66,7 +93,7 @@ def read_embedding(embedding_path):
 def phrase_embedding(words, word2vec):
     if len(words) == 1:
         if not words[0] in word2vec:
-            return []
+            return None
         else:
             return [float(x) for x in word2vec[words[0]].split(' ')]
     wordvecs = []
@@ -77,12 +104,12 @@ def phrase_embedding(words, word2vec):
     if len(wordvecs):
         return np.mean(wordvecs, axis = 0)
     else:
-        return []
+        return None
 
 def sim(phrase1, phrase2, word2vec):
     vec1 = phrase_embedding(phrase1.word.split(' '), word2vec)
     vec2 = phrase_embedding(phrase2.word.split(' '), word2vec)
-    if len(vec1) > 0 and len(vec2) > 0:
+    if not vec1 == None and not vec2 == None:
         if phrase1.negation == phrase2.negation:
             return 1 - spatial.distance.cosine(vec1, vec2)
         else:
@@ -98,7 +125,7 @@ def cal_similarity(summarySet, storySet, word2vec):
             if max_sim < similarity:
                 max_sim = similarity
         phrase1.weight = max_sim
-def process(summary, story, story_id):
+def process(summary, story, story_id, data_file, sourcedata_file):
     #phrases and characters in summary
     characters = {}
     pos = 0
@@ -137,18 +164,30 @@ def process(summary, story, story_id):
         cal_similarity(characters[cid][2], characters[cid][3], word2vec)
         sorted_phrases = characters[cid][3].sort()
         for phrase in characters[cid][2].phrases.values():
-            print "summary\t" + str(characters[cid][2].story_id) + "\t" + str(characters[cid][2].character_id) \
+            out_line =  "summary\t" + str(characters[cid][2].story_id) + "\t" + str(characters[cid][2].character_id) \
             + "\t" + phrase.output()
+            sourcedata_file.write(out_line + '\n')
         for phrase in sorted_phrases:
-            print "story\t" + str(characters[cid][3].story_id) + "\t" + str(characters[cid][3].character_id) \
+            out_line = "story\t" + str(characters[cid][3].story_id) + "\t" + str(characters[cid][3].character_id) \
             + "\t" + phrase[1].output()
+            sourcedata_file.write(out_line + '\n')
     return 0
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', "--token", help="token file")
     parser.add_argument('-e', "--embedding", help="embedding file")
+    parser.add_argument('-q', "--questionnire", help="questionnire file")
+    parser.add_argument('-d', "--data", help="data file")
+    parser.add_argument('-s', "--sourcedata", help="source data file")
     args = parser.parse_args()
+    qsample_dict = {}
+    qsample_file = open(args.questionnire, 'rb')
+    for line in qsample_file:
+        terms = line.rstrip().split('\t')
+        key = terms[1] + ' ' + terms[2]
+        qsample_dict[key] = 0
+    qsample_file.close()
     word2vec = read_embedding(args.embedding)
     token_file_path = args.token
     token_file = open(token_file_path, 'rb') #"../../2.part.tokens.sample", 'rb')
@@ -158,11 +197,12 @@ if __name__ == '__main__':
     summary = []
     story = []
     sentence = []
+    data_file = open(args.data, 'wb')
+    sourcedata_file = open(args.sourcedata, 'wb')
     for line in token_file:
         terms = line.rstrip().split('\t')
         if not len(terms) == 16:
             continue
-        #if not terms[BOOK_ID].isdigit() or not terms[CHAPTER_ID].isdigit() or not terms[SENTENCE_ID].isdigit() or not terms[TOKEN_ID].isdigit() or not terms[HEAD_ID].isdigit() or not terms[CHARACTER_ID].isdigit():
         #    continue
         if not int(terms[BOOK_ID]) == story_id:
             if len(sentence):
@@ -172,7 +212,7 @@ if __name__ == '__main__':
                     story.append(sentence)
             #process
             if len(summary):
-                process(summary, story, story_id)
+                process(summary, story, story_id, data_file, sourcedata_file)
             #new story
             story_id = int(terms[BOOK_ID])
             chapter_id = int(terms[CHAPTER_ID])
@@ -195,3 +235,5 @@ if __name__ == '__main__':
                 sentence = []
                 sentence.append(terms)
     token_file.close()
+    data.close()
+    sourcedata_file.close()
