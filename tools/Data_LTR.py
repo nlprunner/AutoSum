@@ -26,23 +26,17 @@ class Phrase:
         lout.append(self.chapter_id)
         lout.append(self.sentence_id)
         vec = phrase_embedding(self.word.split(' '), word2vec)
-        if not vec == None:
-            lout.append(vec)
-        else:
-            return None
+        if len(vec) == 0:
+            vec = [0.0] * 64
         lout.extend(vec)
         vec = phrase_embedding(self.word_before.split(' '), word2vec)
-        if not vec == None:
-            lout.append(vec)
-        else:
-            return None
+        if len(vec) == 0:
+            vec = [0.0] * 64
         lout.extend(vec)
         lout.append(self.postag_before)
         vec = phrase_embedding(self.word_after.split(' '), word2vec)
-        if not vec == None:
-            lout.append(vec)
-        else:
-            return None
+        if len(vec) == 0:
+            vec = [0.0] * 64
         lout.extend(vec)
         lout.append(self.postag_after)
         lout.append(self.count)
@@ -61,6 +55,11 @@ class PhraseSet:
         self.phrases = {}
     def sort(self):
         return sorted(self.phrases.items(), lambda x, y: cmp(x[1].weight, y[1].weight), reverse=True)
+    def context(self, word2vec):
+        ct = []
+        for word in self.phrases.keys():
+            ct.extend(word.split(' '))
+        return phrase_embedding(ct, word2vec)
 
 BOOK_ID = 0
 CHAPTER_ID = 1
@@ -73,27 +72,30 @@ POSTAG = 11
 ENTITY = 12
 SYNTAX = 13
 CHARACTER_ID = 15
+MIN_SIM = 0.8
 def read_embedding(embedding_path):
     model_file = open(embedding_path, 'rb')
     des_line = model_file.readline()
     word2vec = {}
+    word2vec['ANONE'] = ' '.join([str(x) for x in [0.0] * 64])
+    word2vec['BNONE'] = ' '.join([str(x) for x in [0.0] * 64])
     i = 0;
     for line in model_file:
         terms = line.rstrip().split(' ')
-        if i % 100000 == 0:
-            print "embedding reading " + str(i) + " lines"
+        #if i % 100000 == 0:
+        #    print "embedding reading " + str(i) + " lines"
         if len(terms) == 65:
             word = terms[0]
             word2vec[word] = ' '.join(terms[1:])
         i += 1
     model_file.close()
-    print "embedding reading finished"
+    #print "embedding reading finished"
     return word2vec
 
 def phrase_embedding(words, word2vec):
     if len(words) == 1:
         if not words[0] in word2vec:
-            return None
+            return []
         else:
             return [float(x) for x in word2vec[words[0]].split(' ')]
     wordvecs = []
@@ -104,12 +106,12 @@ def phrase_embedding(words, word2vec):
     if len(wordvecs):
         return np.mean(wordvecs, axis = 0)
     else:
-        return None
+        return []
 
 def sim(phrase1, phrase2, word2vec):
     vec1 = phrase_embedding(phrase1.word.split(' '), word2vec)
     vec2 = phrase_embedding(phrase2.word.split(' '), word2vec)
-    if not vec1 == None and not vec2 == None:
+    if len(vec1) > 0 and len(vec2) > 0:
         if phrase1.negation == phrase2.negation:
             return 1 - spatial.distance.cosine(vec1, vec2)
         else:
@@ -125,7 +127,7 @@ def cal_similarity(summarySet, storySet, word2vec):
             if max_sim < similarity:
                 max_sim = similarity
         phrase1.weight = max_sim
-def process(summary, story, story_id, data_file, sourcedata_file):
+def process(summary, story, story_id, filter_dict, data_file, sourcedata_file):
     #phrases and characters in summary
     characters = {}
     pos = 0
@@ -161,16 +163,26 @@ def process(summary, story, story_id, data_file, sourcedata_file):
     for cid in characters:
         if len(characters[cid][2].phrases) == 0 or len(characters[cid][3].phrases) == 0:
             continue
+        key = str(characters[cid][2].story_id) + " " + str(characters[cid][2].character_id)
+        if key in filter_dict:
+            continue
         cal_similarity(characters[cid][2], characters[cid][3], word2vec)
         sorted_phrases = characters[cid][3].sort()
+        if sorted_phrases[0][1].weight < MIN_SIM:
+            #ignor sample if max(similarities) < MIN_SIM
+            continue
         for phrase in characters[cid][2].phrases.values():
             out_line =  "summary\t" + str(characters[cid][2].story_id) + "\t" + str(characters[cid][2].character_id) \
-            + "\t" + phrase.output()
+                    + "\t" + phrase.output()
             sourcedata_file.write(out_line + '\n')
         for phrase in sorted_phrases:
             out_line = "story\t" + str(characters[cid][3].story_id) + "\t" + str(characters[cid][3].character_id) \
-            + "\t" + phrase[1].output()
+                    + "\t" + phrase[1].output()
+            #print "story\t" + str(characters[cid][3].story_id) + "\t" + str(characters[cid][3].character_id) \
+            #        + "\t" + phrase[1].output_feature(word2vec) + ' ' + ' '.join([str(x) for x in characters[cid][3].context(word2vec)])
             sourcedata_file.write(out_line + '\n')
+            data_file.write(str(characters[cid][3].story_id) + "\t" + str(characters[cid][3].character_id) + "\t" \
+                    + phrase[1].output_feature(word2vec) + ' ' + ' '.join([str(x) for x in characters[cid][3].context(word2vec)]) + '\n')
     return 0
 
 if __name__ == '__main__':
@@ -212,7 +224,7 @@ if __name__ == '__main__':
                     story.append(sentence)
             #process
             if len(summary):
-                process(summary, story, story_id, data_file, sourcedata_file)
+                process(summary, story, story_id, qsample_dict, data_file, sourcedata_file)
             #new story
             story_id = int(terms[BOOK_ID])
             chapter_id = int(terms[CHAPTER_ID])
