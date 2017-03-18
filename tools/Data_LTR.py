@@ -181,7 +181,8 @@ def process(summary, story, story_id, filter_dict, data_file, sourcedata_file):
             #print "story\t" + str(characters[cid][3].story_id) + "\t" + str(characters[cid][3].character_id) \
             #        + "\t" + phrase[1].output_feature(word2vec) + ' ' + ' '.join([str(x) for x in characters[cid][3].context(word2vec)])
             sourcedata_file.write(out_line + '\n')
-            data_file.write(phrase[1].output_feature(word2vec) + ' ' + ' '.join([str(x) for x in characters[cid][3].context(word2vec)]) + '\n')
+            data_file.write(str(characters[cid][3].story_id) + "\t" + str(characters[cid][3].character_id) + "\t" \
+                    + phrase[1].output_feature(word2vec) + ' ' + ' '.join([str(x) for x in characters[cid][3].context(word2vec)]) + '\n')
     return 0
 
 if __name__ == '__main__':
