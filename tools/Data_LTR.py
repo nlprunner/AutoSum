@@ -200,6 +200,7 @@ if __name__ == '__main__':
         key = terms[1] + ' ' + terms[2]
         qsample_dict[key] = 0
     qsample_file.close()
+    qsample_dict = {}
     word2vec = read_embedding(args.embedding)
     token_file_path = args.token
     token_file = open(token_file_path, 'rb') #"../../2.part.tokens.sample", 'rb')
