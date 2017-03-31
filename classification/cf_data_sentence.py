@@ -54,7 +54,7 @@ def filter_dataset_seq(labelId, sentences, embedding_matrix):
             max_score = cur_score
             max_sentence = sentence
     [max_sentence] = sequence.pad_sequences([max_sentence], maxlen=40)
-    return avg_embedding(sentences, embedding_matrix), max_sentence, embedding_matrix[labelId]
+    return max_sentence, embedding_matrix[labelId]
 if __name__ == "__main__":
     ###################################################################
     # Read tag file
@@ -146,21 +146,19 @@ if __name__ == "__main__":
     ###################################################################
     # Construct features
     ###################################################################
-    X = [[], [], []]
+    X = [[], []]
     y = []
     for key in sentence_map.keys():
         for sample in sample_map[key]:
             if not sample[0] in word_dict:
                 continue
-            context,sentence,label_embedding = \
+            sentence,label_embedding = \
                 filter_dataset_seq(word_dict[sample[0]], sentence_map[key], embedding_matrix)
-            X[0].append(context)
-            X[1].append(sentence)
-            X[2].append(label_embedding)
+            X[0].append(sentence)
+            X[1].append(label_embedding)
             y.append(sample[1])
     X[0] = np.asmatrix(X[0])
     X[1] = np.asmatrix(X[1])
-    X[2] = np.asmatrix(X[2])
     y = np.asarray(y)
     scores = []
     ###################################################################
@@ -180,21 +178,20 @@ if __name__ == "__main__":
     for train, test in kf.split(y):
         X_train = []
         X_test = []
-        for i in range(3):
+        for i in range(2):
             X_train.append(X[i][train])
             X_test.append(X[i][test])
         y_train, y_test = y[train], y[test]
         weights = copy.deepcopy(embedding_matrix)
-        context_input = Input(shape=(embedding_size, ))
         word_input = Input(shape=(embedding_size, ))
         sentence_input = Input(shape=(40,), dtype='int32')
         x = Embedding(output_dim=embedding_size, input_dim=max_features, input_length=40, weights=[weights])(sentence_input)
         sentence_out = LSTM(output_dim=64)(x)
-        x = keras.layers.concatenate([word_input, sentence_out, context_input], axis=-1)
+        x = keras.layers.concatenate([sentence_out, word_input], axis=-1)
         x = Dense(64, activation='relu')(x)
         x = Dense(64, activation='relu')(x)
         main_output = Dense(1, activation='sigmoid', name='main_output')(x)
-        model = Model(inputs=[word_input, sentence_input, context_input], outputs=main_output)
+        model = Model(inputs=[sentence_input, word_input], outputs=main_output)
         model.compile(loss='binary_crossentropy',
             optimizer='rmsprop',
             metrics=['accuracy'])
